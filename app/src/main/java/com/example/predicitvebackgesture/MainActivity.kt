@@ -1,11 +1,16 @@
 package com.example.predicitvebackgesture
 
+import android.annotation.SuppressLint
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.view.KeyEvent
 import android.widget.Toast
+import android.window.OnBackInvokedCallback
+import android.window.OnBackInvokedDispatcher
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -22,32 +27,10 @@ class MainActivity : ComponentActivity() {
     private var isExit = false
     private var hasTask = false
 
-    var timerExit: Timer = Timer()
-    var task: TimerTask = object : TimerTask() {
-        override fun run() {
-            isExit = false
-            hasTask = true
-        }
-    }
+    private var timerExit: Timer = Timer()
+    lateinit var onBackInvokedCallback: OnBackInvokedCallback
 
-    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-
-        if (keyCode == KeyEvent.KEYCODE_BACK) {
-            if (!isExit) {
-                isExit = true
-                Toast.makeText(
-                    this, "Press again to exit", Toast.LENGTH_SHORT).show()
-                if (!hasTask) {
-                    timerExit.schedule(task, 2000)
-                }
-            } else {
-                finish()
-                exitProcess(0)
-            }
-        }
-        return false
-    }
-
+    @RequiresApi(33)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -65,6 +48,33 @@ class MainActivity : ComponentActivity() {
                     Greeting("First")
                 }
             }
+        }
+
+        onBackInvokedCallback = OnBackInvokedCallback {
+            if (!isExit) {
+                isExit = true
+                Toast.makeText(
+                    this, "Press again to exit", Toast.LENGTH_SHORT
+                ).show()
+                if (!hasTask) {
+                    timerExit.schedule(object : TimerTask() {
+                        override fun run() {
+                            isExit = false
+                            hasTask = true
+                            onBackInvokedDispatcher.registerOnBackInvokedCallback(
+                                OnBackInvokedDispatcher.PRIORITY_DEFAULT, onBackInvokedCallback
+                            )
+                        }
+                    }, 2000)
+                } else {
+                    onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackInvokedCallback)
+                }
+            }
+        }
+        if (Build.VERSION.SDK_INT >= 33) {
+            onBackInvokedDispatcher.registerOnBackInvokedCallback(
+                OnBackInvokedDispatcher.PRIORITY_DEFAULT, onBackInvokedCallback
+            )
         }
     }
 }
